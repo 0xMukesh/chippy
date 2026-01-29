@@ -1,7 +1,18 @@
 package main
 
-import "github.com/0xmukesh/chippy/gui"
+import (
+	"flag"
+
+	"github.com/0xmukesh/chippy/gui"
+)
+
+var (
+	filePath string
+)
 
 func main() {
-	gui.Start("./roms/ibm.ch8")
+	flag.StringVar(&filePath, "file", "./roms/ibm.ch8", "path of chip-8 rom file")
+	flag.Parse()
+
+	gui.Start(filePath)
 }

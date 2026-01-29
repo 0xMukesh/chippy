@@ -60,7 +60,7 @@ func (e *Emulator) LoadData(data []uint8) {
 	copy(e.ram[start:end], data[:])
 }
 
-func (e *Emulator) TickDelayTimer() {
+func (e *Emulator) TickTimers() {
 	if e.delayTimer > 0 {
 		e.delayTimer--
 	}
