@@ -13,6 +13,7 @@ type Emulator struct {
 	stack             [STACK_SIZE]uint16
 	stackPointer      uint16
 	delayTimer        uint8
+	soundTimer        uint8
 	keys              [NUM_KEYS]bool
 	waitingForRelease bool
 	keyToRelease      uint8
@@ -36,6 +37,7 @@ func (e *Emulator) Reset() {
 	e.stack = [STACK_SIZE]uint16{}
 	e.stackPointer = 0
 	e.delayTimer = 0
+	e.soundTimer = 0
 	e.keys = [NUM_KEYS]bool{}
 
 	copy(e.ram[:FONTSET_SIZE], FONTSET[:])
@@ -66,6 +68,14 @@ func (e *Emulator) TickTimers() {
 	if e.delayTimer > 0 {
 		e.delayTimer--
 	}
+
+	if e.soundTimer > 0 {
+		e.soundTimer--
+	}
+}
+
+func (e *Emulator) SoundTimer() uint8 {
+	return e.soundTimer
 }
 
 // each instruction in chip-8 is two bytes long
@@ -317,10 +327,14 @@ func (e *Emulator) decodeAndExecute(op uint16) {
 
 			e.programCounter -= 2
 		}
-	// dt = vx (0xFX15)
+	// delay timer = vx (0xFX15)
 	case digit1 == 0xF && digit3 == 1 && digit4 == 5:
 		x := digit2
 		e.delayTimer = e.vRegisters[x]
+	// sound timer = vx (0xFX18)
+	case digit1 == 0xF && digit3 == 1 && digit4 == 8:
+		x := digit2
+		e.soundTimer = e.vRegisters[x]
 	// i += vx (0xFX1E)
 	case digit1 == 0xF && digit3 == 1 && digit4 == 0xE:
 		x := digit2
