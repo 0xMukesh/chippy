@@ -5,15 +5,17 @@ import (
 )
 
 type Emulator struct {
-	programCounter uint16
-	ram            [RAM_SIZE]uint8
-	screen         [SCREEN_WIDTH * SCREEN_HEIGHT]bool
-	vRegisters     [NUM_REGS]uint8
-	iRegister      uint16
-	stack          [STACK_SIZE]uint16
-	stackPointer   uint16
-	delayTimer     uint8
-	keys           [NUM_KEYS]bool
+	programCounter    uint16
+	ram               [RAM_SIZE]uint8
+	screen            [SCREEN_WIDTH * SCREEN_HEIGHT]bool
+	vRegisters        [NUM_REGS]uint8
+	iRegister         uint16
+	stack             [STACK_SIZE]uint16
+	stackPointer      uint16
+	delayTimer        uint8
+	keys              [NUM_KEYS]bool
+	waitingForRelease bool
+	keyToRelease      uint8
 }
 
 func NewEmulator() *Emulator {
@@ -150,12 +152,15 @@ func (e *Emulator) decodeAndExecute(op uint16) {
 		case 1:
 			// vx |= vy (0x8XY1)
 			e.vRegisters[x] |= e.vRegisters[y]
+			e.vRegisters[0xf] = 0
 		case 2:
 			// vx &= vy (0x8XY2)
 			e.vRegisters[x] &= e.vRegisters[y]
+			e.vRegisters[0xf] = 0
 		case 3:
 			// vx ^= vy (0x8XY3)
 			e.vRegisters[x] ^= e.vRegisters[y]
+			e.vRegisters[0xf] = 0
 		case 4:
 			// vx += vy (0x8XY4)
 			sum := uint16(e.vRegisters[x]) + uint16(e.vRegisters[y])
@@ -215,7 +220,8 @@ func (e *Emulator) decodeAndExecute(op uint16) {
 	// jump to v0 + nnn (0xBNNN)
 	case digit1 == 0xB:
 		nnn := op & 0xFFF
-		e.programCounter = uint16(e.vRegisters[0]) + nnn
+		highestNibble := nnn >> 8
+		e.programCounter = uint16(e.vRegisters[highestNibble]) + nnn
 	// vx = rand() & nn (rng) (0xCXNN)
 	case digit1 == 0xC:
 		x := digit2
@@ -281,21 +287,34 @@ func (e *Emulator) decodeAndExecute(op uint16) {
 	case digit1 == 0xF && digit3 == 0 && digit4 == 7:
 		x := digit2
 		e.vRegisters[x] = e.delayTimer
-	// wait for key press (0xFX0A)
+	// wait for a key press (0xFX0A)
 	case digit1 == 0xF && digit3 == 0 && digit4 == 0xA:
 		x := digit2
-		pressed := false
 
-		for i, key := range e.keys {
-			if key {
-				e.vRegisters[x] = uint8(i)
-				pressed = true
-				break
+		if e.waitingForRelease {
+			if !e.keys[e.keyToRelease] {
+				e.vRegisters[x] = e.keyToRelease
+				e.waitingForRelease = false
+			} else {
+				e.programCounter -= 2
 			}
-		}
+		} else {
+			pressed := false
+			var pressedKey uint8
 
-		// go back if there was no key press
-		if !pressed {
+			for i, key := range e.keys {
+				if key {
+					pressedKey = uint8(i)
+					pressed = true
+					break
+				}
+			}
+
+			if pressed {
+				e.waitingForRelease = true
+				e.keyToRelease = pressedKey
+			}
+
 			e.programCounter -= 2
 		}
 	// dt = vx (0xFX15)
@@ -327,6 +346,7 @@ func (e *Emulator) decodeAndExecute(op uint16) {
 	case digit1 == 0xF && digit3 == 5 && digit4 == 5:
 		x := digit2
 		iReg := e.iRegister
+		e.iRegister++
 
 		for i := range x + 1 {
 			e.ram[iReg+i] = e.vRegisters[i]
@@ -335,6 +355,7 @@ func (e *Emulator) decodeAndExecute(op uint16) {
 	case digit1 == 0xF && digit3 == 6 && digit4 == 5:
 		x := digit2
 		iReg := e.iRegister
+		e.iRegister++
 
 		for i := range x + 1 {
 			e.vRegisters[i] = e.ram[iReg+i]

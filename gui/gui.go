@@ -8,7 +8,7 @@ import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
-const SCALE = 25
+const SCALE = 10
 const TICKS_PER_FRAME = 10
 const WINDOW_WIDTH = (core.SCREEN_WIDTH) * SCALE
 const WINDOW_HEIGHT = (core.SCREEN_HEIGHT) * SCALE
